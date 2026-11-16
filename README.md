@@ -12,6 +12,7 @@ A SillyTavern UI extension that turns the app's landing state into a **dashboard
 - **Pin chats** to keep them in a dedicated **Pinned** section (below Latest) on the dashboard:
   - via the pin icon on every dashboard card (pinned cards show their pin at all times)
   - via a pin button in ST's **☰ → Manage chat files** dialog, next to the export/delete actions of each chat
+- A pinned chat that is also among the latest appears in **both** sections — its card in Latest carries the always-visible pin marker
 - Pins are stored in the same account storage (and format) SillyTavern's own welcome page uses, so pin state stays consistent between the dashboard, the manage dialog, and ST's welcome panel
 - Pins are passed to the recent-chats lookup, so pinned chats stay visible on the dashboard even when they fall out of the "latest" window
 - Delete chats directly from the dashboard (hover a card → trash icon; the currently open chat can't be deleted from here)
@@ -61,3 +62,9 @@ If anything misbehaves, open the browser console (F12) and check for `[lastChats
 - Opening a chat reuses ST's own flow: `selectCharacterById` → `setActiveCharacter` → `openCharacterChat` (or the group equivalents).
 - Deleting uses ST's `deleteCharacterChatByName` / `deleteGroupChatByName` helpers behind a confirmation popup.
 - "Replace welcome page" works via a `MutationObserver` on `#chat` that removes the injected `.welcomePanel` plus the assistant/welcome messages whenever ST adds them.
+
+## Development
+
+- `npm test` — pin-flow harness: runs the real `index.js` against a faithful simulation of the `/api/chats/recent` endpoint (stubbed ST modules, tests appended to a generated copy). 16 assertions covering pinning, sections, pruning, legacy pin keys and string timestamps.
+- `npm run audit` — verifies every named import and `SillyTavern.getContext()` member used by `index.js` against the SillyTavern source clone at `../.st-src` (a mismatch would silently kill the module in the browser).
+- A `[lastChatsDashboard] render: …` debug line (console, debug level) shows how many chats/pins were rendered — useful when reporting issues.

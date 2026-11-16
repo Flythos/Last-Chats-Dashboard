@@ -30,8 +30,18 @@ function getSettings() {
     return extension_settings[MODULE_NAME];
 }
 
+// /recent items may carry last_mes as a number (mtime ms) or a date string (chat send_date).
+function toMillis(value) {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+        return n;
+    }
+    const t = Date.parse(String(value));
+    return Number.isNaN(t) ? 0 : t;
+}
+
 function formatRelativeTime(mtimeMs) {
-    const diff = Date.now() - mtimeMs;
+    const diff = Date.now() - toMillis(mtimeMs);
     const minute = 60_000;
     const hour = 3_600_000;
     const day = 86_400_000;
@@ -84,7 +94,8 @@ function getPinState() {
     try {
         const parsed = JSON.parse(SillyTavern.getContext().accountStorage.getItem(PINNED_CHATS_KEY) ?? '{}');
         return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
+    } catch (error) {
+        console.warn(`[${MODULE_NAME}] Failed to read pinned chats from account storage`, error);
         return {};
     }
 }
@@ -99,7 +110,17 @@ function getPinKey(chat) {
 }
 
 function isChatPinned(chat) {
-    return getPinKey(chat) in getPinState();
+    const state = getPinState();
+    if (getPinKey(chat) in state) {
+        return true;
+    }
+    // Fallback: match by identity (chat file + character/group), tolerating entries
+    // that were stored under a different key format (e.g. older/foreign writers).
+    return Object.values(state).some(pin =>
+        pin
+        && pin.file_name === chat.file_name
+        && (pin.group ?? undefined) === (chat.group ?? undefined)
+        && (pin.avatar ?? undefined) === (chat.avatar ?? undefined));
 }
 
 function setChatPinned(chat, pinned) {
@@ -118,12 +139,14 @@ function getPinnedChats() {
 }
 
 // Drop pins whose chat file no longer exists (all pinned chats are always included in /recent's response).
+// Matching is by identity (group/avatar/file_name), not by storage key format.
 function pruneStalePins(recentItems) {
     const state = getPinState();
-    const present = new Set(recentItems.map(getPinKey));
+    const present = new Set(recentItems.map(item => `${item.group ?? ''}|${item.avatar ?? ''}|${item.file_name}`));
     let changed = false;
-    for (const key of Object.keys(state)) {
-        if (!present.has(key)) {
+    for (const [key, pin] of Object.entries(state)) {
+        const identity = `${pin?.group ?? ''}|${pin?.avatar ?? ''}|${pin?.file_name}`;
+        if (!present.has(identity)) {
             delete state[key];
             changed = true;
         }
@@ -172,6 +195,7 @@ function toCardModel(chat) {
             preview: truncate(stripTags(chat.mes)),
             messageCount: Number(chat.chat_items) || 0,
             timeLabel: formatRelativeTime(chat.last_mes),
+            lastMes: toMillis(chat.last_mes),
             isActive: ctx.groupId === group.id && currentChatId === fileName,
             isPinned: isChatPinned(chat),
         };
@@ -195,6 +219,7 @@ function toCardModel(chat) {
         preview: truncate(stripTags(chat.mes)),
         messageCount: Number(chat.chat_items) || 0,
         timeLabel: formatRelativeTime(chat.last_mes),
+        lastMes: toMillis(chat.last_mes),
         isActive: ctx.characterId === characterId && currentChatId === fileName,
         isPinned: isChatPinned(chat),
     };
@@ -223,14 +248,22 @@ async function renderDashboard() {
         .map(toCardModel)
         .filter(model => model !== null);
 
-    // The server puts pinned chats first in the response; split them into sections.
-    const chats = cards.filter(model => !model.isPinned);
+    // Latest = the N most recent chats. Pinned chats stay in here too and carry
+    // their pin marker; a pinned chat outside the window shows up in Pinned only.
+    const settings = getSettings();
+    const latest = [...cards]
+        .sort((a, b) => (b.lastMes ?? 0) - (a.lastMes ?? 0))
+        .slice(0, settings.maxChats);
+
+    // Pinned = every pinned chat, even old ones the latest window no longer covers.
     const pinned = cards.filter(model => model.isPinned);
+
+    console.debug(`[${MODULE_NAME}] render: ${cards.length} chats, ${pinned.length} pinned, pin keys:`, Object.keys(getPinState()));
 
     return await renderExtensionTemplateAsync(extensionFolderPath, 'dashboard', {
         pinned,
-        latest: chats,
-        hasAny: pinned.length + chats.length > 0,
+        latest,
+        hasAny: pinned.length + latest.length > 0,
     });
 }
 

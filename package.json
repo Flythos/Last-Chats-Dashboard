@@ -1,0 +1,11 @@
+{
+    "name": "last-chats-dashboard",
+    "version": "1.1.1",
+    "private": true,
+    "type": "module",
+    "description": "SillyTavern UI extension: landing-page dashboard of recently used chats.",
+    "scripts": {
+        "test": "node tests/run-pin-flow.mjs",
+        "audit": "node tests/import-audit.mjs"
+    }
+}
