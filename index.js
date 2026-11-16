@@ -73,6 +73,66 @@ function getFullAvatarUrl(file) {
     return `/characters/${encodeURIComponent(file)}`;
 }
 
+/*
+ * Pinned chats — same accountStorage key and key format as ST's built-in
+ * PinnedChatsManager (welcome-screen.js), so pins made here and in ST's own
+ * welcome panel stay in sync.
+ */
+const PINNED_CHATS_KEY = 'pinnedChats';
+
+function getPinState() {
+    try {
+        const parsed = JSON.parse(SillyTavern.getContext().accountStorage.getItem(PINNED_CHATS_KEY) ?? '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function savePinState(state) {
+    SillyTavern.getContext().accountStorage.setItem(PINNED_CHATS_KEY, JSON.stringify(state));
+}
+
+// chat = { file_name (with .jsonl), avatar? | group? } — the /api/chats/recent item shape.
+function getPinKey(chat) {
+    return `${chat.group ? 'group_' + chat.group : ''}${chat.avatar ? 'char_' + chat.avatar : ''}_${chat.file_name}`;
+}
+
+function isChatPinned(chat) {
+    return getPinKey(chat) in getPinState();
+}
+
+function setChatPinned(chat, pinned) {
+    const state = getPinState();
+    const key = getPinKey(chat);
+    if (pinned) {
+        state[key] = { group: chat.group, avatar: chat.avatar, file_name: chat.file_name };
+    } else {
+        delete state[key];
+    }
+    savePinState(state);
+}
+
+function getPinnedChats() {
+    return Object.values(getPinState());
+}
+
+// Drop pins whose chat file no longer exists (all pinned chats are always included in /recent's response).
+function pruneStalePins(recentItems) {
+    const state = getPinState();
+    const present = new Set(recentItems.map(getPinKey));
+    let changed = false;
+    for (const key of Object.keys(state)) {
+        if (!present.has(key)) {
+            delete state[key];
+            changed = true;
+        }
+    }
+    if (changed) {
+        savePinState(state);
+    }
+}
+
 /**
  * Builds the view model for one recent chat entry.
  * Returns null if the character or group no longer exists.
@@ -113,6 +173,7 @@ function toCardModel(chat) {
             messageCount: Number(chat.chat_items) || 0,
             timeLabel: formatRelativeTime(chat.last_mes),
             isActive: ctx.groupId === group.id && currentChatId === fileName,
+            isPinned: isChatPinned(chat),
         };
     }
 
@@ -135,6 +196,7 @@ function toCardModel(chat) {
         messageCount: Number(chat.chat_items) || 0,
         timeLabel: formatRelativeTime(chat.last_mes),
         isActive: ctx.characterId === characterId && currentChatId === fileName,
+        isPinned: isChatPinned(chat),
     };
 }
 
@@ -144,7 +206,7 @@ async function fetchRecentChats() {
     const response = await fetch('/api/chats/recent', {
         method: 'POST',
         headers: ctx.getRequestHeaders(),
-        body: JSON.stringify({ max: settings.maxChats, pinned: [] }),
+        body: JSON.stringify({ max: settings.maxChats, pinned: getPinnedChats() }),
         cache: 'no-cache',
     });
     if (!response.ok) {
@@ -154,11 +216,22 @@ async function fetchRecentChats() {
 }
 
 async function renderDashboard() {
-    const chats = (await fetchRecentChats())
+    const recentItems = await fetchRecentChats();
+    pruneStalePins(recentItems);
+
+    const cards = recentItems
         .map(toCardModel)
         .filter(model => model !== null);
 
-    return await renderExtensionTemplateAsync(extensionFolderPath, 'dashboard', { chats });
+    // The server puts pinned chats first in the response; split them into sections.
+    const chats = cards.filter(model => !model.isPinned);
+    const pinned = cards.filter(model => model.isPinned);
+
+    return await renderExtensionTemplateAsync(extensionFolderPath, 'dashboard', {
+        pinned,
+        latest: chats,
+        hasAny: pinned.length + chats.length > 0,
+    });
 }
 
 function isDashboardOpen() {
@@ -330,6 +403,25 @@ function registerEventListeners() {
         }
     });
 
+    // Pin toggle on a card.
+    $(document).on('click', '#last_chats_dashboard .lcd-pin', function (event) {
+        event.stopPropagation();
+        const card = $(this).closest('.lcd-card');
+        const chat = {
+            group: card.attr('data-group') || undefined,
+            avatar: card.attr('data-avatar') || undefined,
+            file_name: `${card.attr('data-file')}.jsonl`,
+        };
+        try {
+            setChatPinned(chat, !isChatPinned(chat));
+        } catch (error) {
+            console.error(`[${MODULE_NAME}] Failed to toggle pin`, error);
+            toast('error', 'Failed to toggle pin. See console for details.', 'Last Chats Dashboard');
+            return;
+        }
+        void refreshIfOpen();
+    });
+
     // Delete button on hover (inside the card, stop propagation).
     $(document).on('click', '#last_chats_dashboard .lcd-delete', function (event) {
         event.stopPropagation();
@@ -356,6 +448,64 @@ function registerEventListeners() {
         }
         closeDashboard();
     });
+}
+
+/**
+ * Adds a pin toggle button to every entry of ST's "Manage chat files" dialog
+ * (#select_chat_div), next to the export/delete actions. A MutationObserver
+ * keeps enhancing entries as the dialog re-renders (open, search, delete...).
+ */
+function startPastChatsEnhancer() {
+    const container = document.getElementById('select_chat_div');
+    if (!container || typeof MutationObserver === 'undefined') {
+        return;
+    }
+
+    const enhance = () => {
+        container.querySelectorAll('.select_chat_block_wrapper').forEach(wrapper => {
+            const actions = wrapper.querySelector('.select_chat_actions');
+            if (!actions || actions.querySelector('.lcd-past-chat-pin')) {
+                return;
+            }
+            const fileName = wrapper.querySelector('.select_chat_block')?.getAttribute('file_name');
+            if (!fileName) {
+                return;
+            }
+            const button = document.createElement('div');
+            button.className = 'lcd-past-chat-pin opacity50p hoverglow fa-solid fa-thumbtack';
+            actions.insertBefore(button, actions.firstChild);
+            updatePastChatPinButton(button, fileName);
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                try {
+                    setChatPinned(currentChatIdentity(fileName), !isChatPinned(currentChatIdentity(fileName)));
+                } catch (error) {
+                    console.error(`[${MODULE_NAME}] Failed to toggle pin`, error);
+                    toast('error', 'Failed to toggle pin. See console for details.', 'Last Chats Dashboard');
+                    return;
+                }
+                updatePastChatPinButton(button, fileName);
+            });
+        });
+    };
+
+    new MutationObserver(enhance).observe(container, { childList: true });
+}
+
+// Pin identity for the chat currently open in the "Manage chat files" dialog.
+function currentChatIdentity(fileName) {
+    const ctx = SillyTavern.getContext();
+    if (ctx.groupId) {
+        return { group: ctx.groupId, file_name: fileName };
+    }
+    const character = ctx.characters[ctx.characterId];
+    return { avatar: character?.avatar, file_name: fileName };
+}
+
+function updatePastChatPinButton(button, fileName) {
+    const pinned = isChatPinned(currentChatIdentity(fileName));
+    button.classList.toggle('lcd-pin-active', pinned);
+    button.title = pinned ? 'Unpin from Last Chats Dashboard' : 'Pin to Last Chats Dashboard';
 }
 
 /**
@@ -471,6 +621,7 @@ jQuery(() => {
     addWandMenuButton();
     addSettingsPanel();
     registerEventListeners();
+    startPastChatsEnhancer();
     startWelcomeSuppression();
     console.debug(`[${MODULE_NAME}] Ready`);
 });

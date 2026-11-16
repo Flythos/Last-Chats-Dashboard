@@ -60,6 +60,23 @@
 
 /* Card grid */
 
+.lcd-section-title {
+    flex: none;
+    margin: 4px 0 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.8;
+}
+
+.lcd-section-title .fa-thumbtack {
+    color: var(--SmartThemeQuoteColor);
+}
+
+.lcd-container > .lcd-section-title:first-of-type {
+    margin-top: 0;
+}
+
 .lcd-grid {
     flex: 1 1 auto;
     min-height: 0;
@@ -214,6 +231,43 @@
     transform: scale(1.12);
     background-color: #ff5d5d;
     color: white;
+}
+
+.lcd-pin {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    color: var(--SmartThemeFontColor);
+    background-color: var(--SmartThemeShadowColor);
+    opacity: 0;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.lcd-card:hover .lcd-pin {
+    opacity: 1;
+}
+
+.lcd-pin:hover {
+    transform: scale(1.12);
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* Pinned cards keep their pin visible at all times. */
+.lcd-card .lcd-pin.lcd-pinned {
+    opacity: 1;
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* Pin buttons injected into ST's "Manage chat files" dialog. */
+.lcd-past-chat-pin.lcd-pin-active {
+    color: var(--SmartThemeQuoteColor);
+    opacity: 1;
 }
 
 /* Group collage fallback */

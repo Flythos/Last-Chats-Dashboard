@@ -9,6 +9,11 @@ A SillyTavern UI extension that turns the app's landing state into a **dashboard
 - Also reopenable from the **wand menu → "Last Chats Dashboard"**
 - Portraits are loaded at **full resolution** from the character files (not ST's 96×144 thumbnails)
 - Can **replace SillyTavern's built-in welcome page** (default on)
+- **Pin chats** to keep them in a dedicated **Pinned** section (below Latest) on the dashboard:
+  - via the pin icon on every dashboard card (pinned cards show their pin at all times)
+  - via a pin button in ST's **☰ → Manage chat files** dialog, next to the export/delete actions of each chat
+- Pins are stored in the same account storage (and format) SillyTavern's own welcome page uses, so pin state stays consistent between the dashboard, the manage dialog, and ST's welcome panel
+- Pins are passed to the recent-chats lookup, so pinned chats stay visible on the dashboard even when they fall out of the "latest" window
 - Delete chats directly from the dashboard (hover a card → trash icon; the currently open chat can't be deleted from here)
 - Settings: number of chats to show (1–100), show-on-startup toggle, replace-welcome-page toggle, "open now" button — found under **Extensions → Last Chats Dashboard**
 - Closes via Esc, the ✕ button, or clicking the backdrop
@@ -40,11 +45,13 @@ Delete the folder from `public/scripts/extensions/third-party/` and refresh the 
 4. **Recency** — chat for a bit, close/select another chat, reopen the dashboard: that chat is now first with a fresh preview and time.
 5. **Portrait quality** — character portraits are crisp (full-size originals), not blurry thumbnails; group cards show the group avatar or a member collage.
 6. **Groups** — a group chat card shows the group avatar or member collage; clicking it opens the group chat.
-7. **Delete** — hover a non-active card → trash icon → confirm → the card disappears from the list.
-8. **Active chat guard** — the currently open chat shows an "Open" badge and no delete button.
-9. **Close paths** — Esc, ✕ and backdrop click all close the dashboard; the top-bar icon and wand-menu button reopen it.
-10. **Settings** — toggling "Show on startup" off and reloading lands you in the plain UI; "Replace the built-in welcome page" off makes ST's welcome page appear again; the number input changes how many cards are listed.
-11. **Edge cases** — if a chat's character/group was deleted, the card is skipped; if there are no chats at all, an empty-state message shows.
+7. **Pin from dashboard** — hover a card → pin icon → the card moves to the "Pinned" section below "Latest"; clicking the pin there unpins it.
+8. **Pin from manage dialog** — ☰ → Manage chat files → pin button next to each chat's export/delete icons toggles that chat's pin (active = accent color); the dashboard reflects it on next open.
+9. **Pin persistence** — a pinned chat stays in the Pinned section even after newer chats push it out of the latest window; deleting a pinned chat cleans up its pin.
+10. **Active chat guard** — the currently open chat shows an "Open" badge and no delete/pin buttons.
+11. **Close paths** — Esc, ✕ and backdrop click all close the dashboard; the top-bar icon and wand-menu button reopen it.
+12. **Settings** — toggling "Show on startup" off and reloading lands you in the plain UI; "Replace the built-in welcome page" off makes ST's welcome page appear again; the number input changes how many cards are listed.
+13. **Edge cases** — if a chat's character/group was deleted, the card is skipped; if there are no chats at all, an empty-state message shows.
 
 If anything misbehaves, open the browser console (F12) and check for `[lastChatsDashboard]` messages.
 
