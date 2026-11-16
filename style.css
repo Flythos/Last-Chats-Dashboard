@@ -1,0 +1,282 @@
+/* Last Chats Dashboard — full-screen landing overlay */
+
+#last_chats_dashboard.lcd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--SmartThemeBlurTintColor);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: lcdFadeIn 0.18s ease-out;
+}
+
+@keyframes lcdFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.lcd-container {
+    width: min(1200px, 92vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 22px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 14px;
+    background-color: var(--SmartThemeBlurTintColor);
+    box-shadow: 0 12px 48px var(--SmartThemeShadowColor);
+}
+
+/* Header */
+
+.lcd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+}
+
+.lcd-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--SmartThemeFontColor);
+}
+
+.lcd-close {
+    cursor: pointer;
+}
+
+/* Card grid */
+
+.lcd-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    padding: 2px;
+}
+
+.lcd-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: var(--SmartThemeBlurTintColor);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.lcd-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--SmartThemeQuoteColor);
+    box-shadow: 0 8px 24px var(--SmartThemeShadowColor);
+}
+
+.lcd-card.lcd-active {
+    border-color: var(--SmartThemeQuoteColor);
+    box-shadow: 0 0 0 1px var(--SmartThemeQuoteColor) inset;
+}
+
+/* Portrait area */
+
+.lcd-portrait {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    background-color: var(--SmartThemeShadowColor);
+}
+
+.lcd-portrait > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lcd-card-body {
+    position: relative;
+    padding: 10px 12px;
+    background: linear-gradient(to top, var(--SmartThemeShadowColor), transparent 140%);
+}
+
+.lcd-chat-name {
+    font-weight: 600;
+    color: var(--SmartThemeFontColor);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lcd-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 0.85rem;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.85;
+}
+
+.lcd-char {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lcd-sep {
+    opacity: 0.6;
+}
+
+.lcd-time {
+    flex: none;
+}
+
+.lcd-preview {
+    margin-top: 6px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.75;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Badges on the portrait */
+
+.lcd-active-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--SmartThemeFontColor);
+    background-color: var(--SmartThemeQuoteColor);
+    pointer-events: none;
+}
+
+.lcd-count {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--SmartThemeFontColor);
+    background-color: var(--SmartThemeShadowColor);
+    pointer-events: none;
+}
+
+.lcd-delete {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    color: #ff5d5d;
+    background-color: var(--SmartThemeShadowColor);
+    opacity: 0;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.lcd-card:hover .lcd-delete {
+    opacity: 1;
+}
+
+.lcd-delete:hover {
+    transform: scale(1.12);
+    background-color: #ff5d5d;
+    color: white;
+}
+
+/* Group collage fallback */
+
+.lcd-collage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    width: 100%;
+    height: 100%;
+}
+
+.lcd-collage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lcd-collage-1 {
+    grid-template-rows: 1fr;
+}
+
+.lcd-collage-1 img {
+    grid-column: span 2;
+}
+
+.lcd-collage-2 {
+    grid-template-rows: 1fr;
+}
+
+.lcd-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.5;
+}
+
+/* Empty state + footer */
+
+.lcd-empty {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 40px 0;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.7;
+    text-align: center;
+}
+
+.lcd-hint {
+    flex: none;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--SmartThemeFontColor);
+    opacity: 0.6;
+}
+
+.lcd-hint .lcd-sep {
+    margin: 0 6px;
+}

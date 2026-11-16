@@ -1,0 +1,68 @@
+<div id="last_chats_dashboard" class="lcd-overlay">
+    <div class="lcd-container">
+        <header class="lcd-header">
+            <div class="lcd-title">
+                <i class="fa-solid fa-table-cells-large fa-fw"></i>
+                <span>Last Chats</span>
+            </div>
+            <div class="lcd-close menu_button" title="Close">
+                <i class="fa-solid fa-xmark fa-fw"></i>
+            </div>
+        </header>
+        {{#if chats.length}}
+        <div class="lcd-grid">
+            {{#each chats}}
+            <div class="lcd-card{{#if isActive}} lcd-active{{/if}}"
+                 data-file="{{fileName}}" data-avatar="{{avatarId}}" data-group="{{groupId}}"
+                 title="{{displayName}}{{#if isActive}} (currently open){{/if}}">
+                <div class="lcd-portrait">
+                    {{#if isGroup}}
+                        {{#if avatarUrl}}
+                        <img src="{{avatarUrl}}" alt="" loading="lazy">
+                        {{else if collage.length}}
+                        <div class="lcd-collage lcd-collage-{{collage.length}}">
+                            {{#each collage}}<img src="{{this}}" alt="" loading="lazy">{{/each}}
+                        </div>
+                        {{else}}
+                        <div class="lcd-fallback"><i class="fa-solid fa-users fa-fw fa-2x"></i></div>
+                        {{/if}}
+                    {{else}}
+                    <img src="{{avatarUrl}}" alt="" loading="lazy">
+                    {{/if}}
+                    {{#if isActive}}
+                    <div class="lcd-active-badge" title="This chat is currently open"><i class="fa-solid fa-play fa-fw"></i><span>Open</span></div>
+                    {{/if}}
+                    {{#if messageCount}}
+                    <div class="lcd-count" title="{{messageCount}} messages">{{messageCount}}</div>
+                    {{/if}}
+                    {{#unless isActive}}
+                    <div class="lcd-delete" title="Delete this chat"><i class="fa-solid fa-trash-can fa-fw"></i></div>
+                    {{/unless}}
+                </div>
+                <div class="lcd-card-body">
+                    <div class="lcd-chat-name">{{displayName}}</div>
+                    <div class="lcd-sub">
+                        <span class="lcd-char">{{charName}}</span>
+                        <span class="lcd-sep">·</span>
+                        <span class="lcd-time">{{timeLabel}}</span>
+                    </div>
+                    {{#if preview}}
+                    <div class="lcd-preview">{{preview}}</div>
+                    {{/if}}
+                </div>
+            </div>
+            {{/each}}
+        </div>
+        {{else}}
+        <div class="lcd-empty">
+            <i class="fa-solid fa-comments fa-2x"></i>
+            <p>No chats yet. Start a conversation and it will show up here.</p>
+        </div>
+        {{/if}}
+        <footer class="lcd-hint">
+            <span>Click a card to open the chat</span>
+            <span class="lcd-sep">·</span>
+            <span>Esc to close</span>
+        </footer>
+    </div>
+</div>
