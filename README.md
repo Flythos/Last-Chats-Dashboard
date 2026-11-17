@@ -7,7 +7,7 @@ A SillyTavern extension that turns the app's landing state into a dashboard of y
 - Full-screen dashboard shown on startup when no chat is open. It can **replace SillyTavern's built-in welcome page** (on by default).
 - A **grid icon in the top bar** (rightmost) opens the dashboard any time; it's also in the **wand menu → "Last Chats Dashboard"**.
 - Portraits are loaded at full resolution from the character files, not ST's small thumbnails. Group cards show the group avatar or a collage of member portraits.
-- **Pin chats** to keep them in a dedicated **Pinned** section below Latest, even after newer chats push them out of the recent list. Pin from a card (hover → pin icon) or from ☰ → **Manage chat files**. Pins use the same storage as ST's own welcome page, so pin state stays consistent everywhere.
+- **Pin chats** to keep them in a dedicated **Pinned** section below Latest, even after newer chats push them out of the recent list. Pin from a card (hover → pin icon) or from ☰ → **Manage chat files**. Pins use the same storage as ST's own welcome page, so pin state stays consistent everywhere; the dashboard also mirrors pin state and restores it if another part of ST overwrites the shared storage, and follows chat renames automatically.
 - **Delete chats** straight from the dashboard (hover a card → trash icon, with a confirmation). The currently open chat is marked and can't be deleted from here.
 - Settings under **Extensions → Last Chats Dashboard**: how many chats to show (1–100), show on startup, replace welcome page, and an "open now" button.
 - Closes via Esc, the ✕ button, or clicking the backdrop.

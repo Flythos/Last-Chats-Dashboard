@@ -112,6 +112,8 @@ assert('T7 its timeLabel is not garbage', !['NaN', 'undefined'].includes(data.la
 delete chatFiles[1].lastMesOverride;
 
 // T8: pins stored under a foreign/legacy key format must still be recognized and survive prune
+// (mirror cleared first: the foreign pin was not written by this extension)
+extension_settings.lastChatsDashboard.pins = {};
 storage.set('pinnedChats', JSON.stringify({ 'some_foreign_key': { avatar: 'b.png', file_name: 'newest-b.jsonl' } }));
 await renderDashboard();
 data = __lastTemplateData();
@@ -119,10 +121,48 @@ assert('T8 legacy-key pin recognized as pinned', data.pinned.some(c => c.fileNam
 assert('T8 legacy pin also still in latest, marked', data.latest.some(c => c.fileName === 'newest-b' && c.isPinned));
 assert('T8 legacy pin survives prune (chat still exists)', storage.get('pinnedChats').includes('some_foreign_key'));
 
-// T9: a truly deleted chat's pin is pruned
+// T9: a truly deleted chat's pin is pruned (mirror cleared first: foreign state)
+extension_settings.lastChatsDashboard.pins = {};
 storage.set('pinnedChats', JSON.stringify({ 'char_a.png_gone.jsonl': { avatar: 'a.png', file_name: 'gone.jsonl' } }));
 await renderDashboard();
 assert('T9 stale pin pruned when chat file vanished', !storage.get('pinnedChats').includes('gone.jsonl'));
+assert('T9 prune also syncs the mirror', (extension_settings.lastChatsDashboard.pins['char_a.png_gone.jsonl'] ?? null) === null);
+
+// T10: a foreign full-key overwrite (ST's cached PinnedChatsManager rewrites the
+// whole key from its app-start cache) is healed from the mirror on the next read
+setChatPinned({ avatar: 'a.png', file_name: 'old-a.jsonl' }, true);
+storage.set('pinnedChats', '{}');
+await renderDashboard();
+data = __lastTemplateData();
+assert('T10 wiped pin healed from mirror and shown', data.pinned.some(c => c.fileName === 'old-a' && c.isPinned));
+assert('T10 healed pin written back to live storage', storage.get('pinnedChats').includes('old-a.jsonl'));
+
+// T11: a legitimate unpin must NOT be resurrected by the heal
+setChatPinned({ avatar: 'a.png', file_name: 'old-a.jsonl' }, false);
+assert('T11 unpin persists (mirror synced, no resurrection)', !storage.get('pinnedChats').includes('old-a.jsonl'));
+await renderDashboard();
+data = __lastTemplateData();
+assert('T11 unpin survives a render', !data.pinned.some(c => c.fileName === 'old-a'));
+
+// T12: renaming a pinned character chat migrates the pin (otherwise it dangles
+// under the old name and gets pruned on the next render)
+setChatPinned({ avatar: 'a.png', file_name: 'mid-a.jsonl' }, true);
+onChatRenamed({ avatarId: 'a.png', groupId: undefined, oldFileName: 'mid-a.jsonl', newFileName: 'mid-a-renamed.jsonl' });
+const t12storage = storage.get('pinnedChats');
+assert('T12 pin migrated to new file name', t12storage.includes('mid-a-renamed.jsonl') && !t12storage.includes('"mid-a.jsonl"'));
+chatFiles.push({ pngFile: 'a.png', filePath: 'chats/Alice/mid-a-renamed.jsonl', mtime: 6000 });
+await renderDashboard();
+data = __lastTemplateData();
+assert('T12 migrated pin survives prune + shows in pinned section', data.pinned.some(c => c.fileName === 'mid-a-renamed' && c.isPinned));
+
+// T13: renaming a pinned group chat migrates the pin too
+setChatPinned({ group: 'g1', file_name: 'group-1.jsonl' }, true);
+onChatRenamed({ avatarId: undefined, groupId: 'g1', oldFileName: 'group-1.jsonl', newFileName: 'group-1-renamed.jsonl' });
+assert('T13 group pin migrated', storage.get('pinnedChats').includes('group-1-renamed.jsonl'));
+chatFiles.push({ groupId: 'g1', filePath: 'groupchats/group-1-renamed.jsonl', mtime: 7000 });
+await renderDashboard();
+data = __lastTemplateData();
+assert('T13 migrated group pin survives prune + shows', data.pinned.some(c => c.fileName === 'group-1-renamed' && c.isGroup && c.isPinned));
 
 const failed = results.filter(r => !r).length;
 console.log(failed === 0 ? 'HARNESS ALL PASS' : `HARNESS FAILURES: ${failed}`);

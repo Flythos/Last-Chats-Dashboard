@@ -87,10 +87,17 @@ function getFullAvatarUrl(file) {
  * Pinned chats — same accountStorage key and key format as ST's built-in
  * PinnedChatsManager (welcome-screen.js), so pins made here and in ST's own
  * welcome panel stay in sync.
+ *
+ * Hazard: ST's manager caches the whole key at app start and rewrites it from
+ * that cache on every pin toggle in its welcome panel, silently dropping pins
+ * made through this extension afterwards (same-tab, full-key overwrite). To
+ * survive that, every write also mirrors the state into extension settings and
+ * reads heal mirror pins the live key lost. Our own writes keep the mirror in
+ * sync, so a legitimate unpin is never resurrected.
  */
 const PINNED_CHATS_KEY = 'pinnedChats';
 
-function getPinState() {
+function readPinState() {
     try {
         const parsed = JSON.parse(SillyTavern.getContext().accountStorage.getItem(PINNED_CHATS_KEY) ?? '{}');
         return parsed && typeof parsed === 'object' ? parsed : {};
@@ -98,6 +105,44 @@ function getPinState() {
         console.warn(`[${MODULE_NAME}] Failed to read pinned chats from account storage`, error);
         return {};
     }
+}
+
+// Identity comparison tolerant of differing storage key formats.
+function samePinIdentity(a, b) {
+    return Boolean(a && b
+        && a.file_name === b.file_name
+        && (a.group ?? undefined) === (b.group ?? undefined)
+        && (a.avatar ?? undefined) === (b.avatar ?? undefined));
+}
+
+// The single write path for pin state: live store (ST-compatible) + mirror.
+function writePins(state) {
+    savePinState(state);
+    getSettings().pins = JSON.parse(JSON.stringify(state));
+    saveSettingsDebounced();
+}
+
+function getPinState() {
+    const state = readPinState();
+
+    const settings = getSettings();
+    if (!settings.pins || typeof settings.pins !== 'object') {
+        // First run (or settings reset): seed the mirror from what's on disk.
+        settings.pins = JSON.parse(JSON.stringify(state));
+        saveSettingsDebounced();
+    } else {
+        const mirrorPins = Object.values(settings.pins).filter(pin => pin && typeof pin === 'object' && pin.file_name);
+        const missing = mirrorPins.filter(pin => !Object.values(state).some(stored => samePinIdentity(stored, pin)));
+        if (missing.length > 0) {
+            for (const pin of missing) {
+                state[getPinKey(pin)] = { group: pin.group, avatar: pin.avatar, file_name: pin.file_name };
+            }
+            console.warn(`[${MODULE_NAME}] Restored ${missing.length} pin(s) lost to an external overwrite`);
+            writePins(state);
+        }
+    }
+
+    return state;
 }
 
 function savePinState(state) {
@@ -131,11 +176,38 @@ function setChatPinned(chat, pinned) {
     } else {
         delete state[key];
     }
-    savePinState(state);
+    writePins(state);
 }
 
 function getPinnedChats() {
     return Object.values(getPinState());
+}
+
+// Migrate pins when a chat is renamed. ST's own manager does this only for pins
+// it had cached at app start — a pin made in-session would dangle under the old
+// file name and be pruned on the next dashboard render. The CHAT_RENAMED payload
+// carries file names WITH the .jsonl extension (same as pin storage).
+function onChatRenamed({ avatarId, groupId, oldFileName, newFileName } = {}) {
+    if (!oldFileName || !newFileName || oldFileName === newFileName) {
+        return;
+    }
+    const state = getPinState();
+    const oldIdentity = groupId
+        ? { group: groupId, avatar: undefined, file_name: oldFileName }
+        : { group: undefined, avatar: avatarId, file_name: oldFileName };
+    let changed = false;
+    for (const [key, pin] of Object.entries(state)) {
+        if (!samePinIdentity(pin, oldIdentity)) {
+            continue;
+        }
+        delete state[key];
+        const migrated = { group: pin.group, avatar: pin.avatar, file_name: newFileName };
+        state[getPinKey(migrated)] = migrated;
+        changed = true;
+    }
+    if (changed) {
+        writePins(state);
+    }
 }
 
 // Drop pins whose chat file no longer exists (all pinned chats are always included in /recent's response).
@@ -152,7 +224,7 @@ function pruneStalePins(recentItems) {
         }
     }
     if (changed) {
-        savePinState(state);
+        writePins(state);
     }
 }
 
@@ -417,7 +489,10 @@ function registerEventListeners() {
     eventSource.on(eventTypes.CHAT_CHANGED, onChatChanged);
     eventSource.on(eventTypes.CHAT_CREATED, refreshIfOpen);
     eventSource.on(eventTypes.CHAT_DELETED, refreshIfOpen);
-    eventSource.on(eventTypes.CHAT_RENAMED, refreshIfOpen);
+    eventSource.on(eventTypes.CHAT_RENAMED, (eventData) => {
+        onChatRenamed(eventData);
+        void refreshIfOpen();
+    });
 
     // Card click: open the chat.
     $(document).on('click', '#last_chats_dashboard .lcd-card', function () {
