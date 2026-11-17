@@ -164,6 +164,25 @@ await renderDashboard();
 data = __lastTemplateData();
 assert('T13 migrated group pin survives prune + shows', data.pinned.some(c => c.fileName === 'group-1-renamed' && c.isGroup && c.isPinned));
 
+// T14: dialog path — ST's /api/chats/search returns file names WITHOUT .jsonl;
+// the pin identity must normalize it (v1.1.3 regression: dialog pins were
+// written extension-less, never matched /recent, and got pruned)
+fakeCtx.characterId = 0;
+fakeCtx.groupId = null;
+const dialogIdentity = currentChatIdentity('Maddy, Ivy, Staci - 2026-09-06@15h54m57s650ms');
+assert('T14 dialog pin identity gains .jsonl', dialogIdentity.file_name === 'Maddy, Ivy, Staci - 2026-09-06@15h54m57s650ms.jsonl' && dialogIdentity.avatar === 'a.png');
+assert('T14 already-extension-ed names untouched', currentChatIdentity('x.jsonl').file_name === 'x.jsonl');
+
+// T15: a legacy extension-less pin must still work end-to-end: the payload sent
+// to /recent is normalized (server includes the out-of-window chat) and the
+// identity fallback matches it, so it shows pinned and survives prune
+extension_settings.lastChatsDashboard.pins = {};
+storage.set('pinnedChats', JSON.stringify({ 'legacy_dialog_pin': { avatar: 'a.png', file_name: 'mid-a' } }));
+await renderDashboard();
+data = __lastTemplateData();
+assert('T15 legacy extension-less pin shows in pinned section (payload normalized)', data.pinned.some(c => c.fileName === 'mid-a' && c.isPinned));
+assert('T15 legacy pin survives prune', storage.get('pinnedChats').includes('legacy_dialog_pin'));
+
 const failed = results.filter(r => !r).length;
 console.log(failed === 0 ? 'HARNESS ALL PASS' : `HARNESS FAILURES: ${failed}`);
 process.exit(failed === 0 ? 0 : 1);

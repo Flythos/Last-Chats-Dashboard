@@ -107,12 +107,22 @@ function readPinState() {
     }
 }
 
-// Identity comparison tolerant of differing storage key formats.
+// Identity comparison tolerant of differing storage key formats. Chat file
+// names are compared with a normalized .jsonl extension (older dialog pins
+// were written without it).
 function samePinIdentity(a, b) {
     return Boolean(a && b
-        && a.file_name === b.file_name
+        && withJsonlExtension(a.file_name) === withJsonlExtension(b.file_name)
         && (a.group ?? undefined) === (b.group ?? undefined)
         && (a.avatar ?? undefined) === (b.avatar ?? undefined));
+}
+
+// Pin file names always carry the .jsonl extension (same as /recent items and
+// ST's PinnedChat entries). ST's /api/chats/search — which feeds the Manage
+// chat files dialog — returns file names WITHOUT it, so normalize everywhere.
+function withJsonlExtension(fileName) {
+    fileName = String(fileName ?? '');
+    return fileName.toLowerCase().endsWith('.jsonl') ? fileName : `${fileName}.jsonl`;
 }
 
 // The single write path for pin state: live store (ST-compatible) + mirror.
@@ -160,12 +170,8 @@ function isChatPinned(chat) {
         return true;
     }
     // Fallback: match by identity (chat file + character/group), tolerating entries
-    // that were stored under a different key format (e.g. older/foreign writers).
-    return Object.values(state).some(pin =>
-        pin
-        && pin.file_name === chat.file_name
-        && (pin.group ?? undefined) === (chat.group ?? undefined)
-        && (pin.avatar ?? undefined) === (chat.avatar ?? undefined));
+    // that were stored under a different key format or file-name style.
+    return Object.values(state).some(pin => samePinIdentity(pin, chat));
 }
 
 function setChatPinned(chat, pinned) {
@@ -180,7 +186,13 @@ function setChatPinned(chat, pinned) {
 }
 
 function getPinnedChats() {
-    return Object.values(getPinState());
+    // Normalize the payload too: a legacy extension-less pin then still makes
+    // the server include its (old) chat in the recent response.
+    return Object.values(getPinState()).map(pin => ({
+        group: pin.group,
+        avatar: pin.avatar,
+        file_name: withJsonlExtension(pin.file_name),
+    }));
 }
 
 // Migrate pins when a chat is renamed. ST's own manager does this only for pins
@@ -201,7 +213,7 @@ function onChatRenamed({ avatarId, groupId, oldFileName, newFileName } = {}) {
             continue;
         }
         delete state[key];
-        const migrated = { group: pin.group, avatar: pin.avatar, file_name: newFileName };
+        const migrated = { group: pin.group, avatar: pin.avatar, file_name: withJsonlExtension(newFileName) };
         state[getPinKey(migrated)] = migrated;
         changed = true;
     }
@@ -211,14 +223,12 @@ function onChatRenamed({ avatarId, groupId, oldFileName, newFileName } = {}) {
 }
 
 // Drop pins whose chat file no longer exists (all pinned chats are always included in /recent's response).
-// Matching is by identity (group/avatar/file_name), not by storage key format.
+// Matching is by identity (group/avatar/file_name, extension-normalized), not by storage key format.
 function pruneStalePins(recentItems) {
     const state = getPinState();
-    const present = new Set(recentItems.map(item => `${item.group ?? ''}|${item.avatar ?? ''}|${item.file_name}`));
     let changed = false;
     for (const [key, pin] of Object.entries(state)) {
-        const identity = `${pin?.group ?? ''}|${pin?.avatar ?? ''}|${pin?.file_name}`;
-        if (!present.has(identity)) {
+        if (!recentItems.some(item => samePinIdentity(item, pin))) {
             delete state[key];
             changed = true;
         }
@@ -601,8 +611,11 @@ function startPastChatsEnhancer() {
 }
 
 // Pin identity for the chat currently open in the "Manage chat files" dialog.
+// The dialog's file_name attribute comes from /api/chats/search, which returns
+// names WITHOUT the .jsonl extension — normalize before storing.
 function currentChatIdentity(fileName) {
     const ctx = SillyTavern.getContext();
+    fileName = withJsonlExtension(fileName);
     if (ctx.groupId) {
         return { group: ctx.groupId, file_name: fileName };
     }
