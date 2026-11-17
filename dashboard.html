@@ -20,16 +20,16 @@
                 <div class="lcd-portrait">
                     {{#if isGroup}}
                         {{#if avatarUrl}}
-                        <img src="{{avatarUrl}}" alt="" loading="lazy">
+                        <img src="{{avatarUrl}}" alt="" loading="lazy" draggable="false">
                         {{else if collage.length}}
                         <div class="lcd-collage lcd-collage-{{collage.length}}">
-                            {{#each collage}}<img src="{{this}}" alt="" loading="lazy">{{/each}}
+                            {{#each collage}}<img src="{{this}}" alt="" loading="lazy" draggable="false">{{/each}}
                         </div>
                         {{else}}
                         <div class="lcd-fallback"><i class="fa-solid fa-users fa-fw fa-2x"></i></div>
                         {{/if}}
                     {{else}}
-                    <img src="{{avatarUrl}}" alt="" loading="lazy">
+                    <img src="{{avatarUrl}}" alt="" loading="lazy" draggable="false">
                     {{/if}}
                     {{#if isActive}}
                     <div class="lcd-active-badge" title="This chat is currently open"><i class="fa-solid fa-play fa-fw"></i><span>Open</span></div>
@@ -67,16 +67,16 @@
                 <div class="lcd-portrait">
                     {{#if isGroup}}
                         {{#if avatarUrl}}
-                        <img src="{{avatarUrl}}" alt="" loading="lazy">
+                        <img src="{{avatarUrl}}" alt="" loading="lazy" draggable="false">
                         {{else if collage.length}}
                         <div class="lcd-collage lcd-collage-{{collage.length}}">
-                            {{#each collage}}<img src="{{this}}" alt="" loading="lazy">{{/each}}
+                            {{#each collage}}<img src="{{this}}" alt="" loading="lazy" draggable="false">{{/each}}
                         </div>
                         {{else}}
                         <div class="lcd-fallback"><i class="fa-solid fa-users fa-fw fa-2x"></i></div>
                         {{/if}}
                     {{else}}
-                    <img src="{{avatarUrl}}" alt="" loading="lazy">
+                    <img src="{{avatarUrl}}" alt="" loading="lazy" draggable="false">
                     {{/if}}
                     {{#if isActive}}
                     <div class="lcd-active-badge" title="This chat is currently open"><i class="fa-solid fa-play fa-fw"></i><span>Open</span></div>

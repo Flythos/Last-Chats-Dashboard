@@ -549,6 +549,14 @@ function registerEventListeners() {
     // Close button.
     $(document).on('click', '#last_chats_dashboard .lcd-close', () => closeDashboard());
 
+    // Block native drags inside the dashboard: Chromium puts a dragged in-page
+    // <img> into dataTransfer.files, and ST's body-wide drop handler imports it
+    // as a character card — accidentally re-importing the character on a sloppy
+    // drag of a portrait.
+    $(document).on('dragstart', '#last_chats_dashboard', function (event) {
+        event.preventDefault();
+    });
+
     // Click on the backdrop (the overlay root itself) closes the dashboard.
     $(document).on('mousedown', '#last_chats_dashboard', function (event) {
         if (event.target === this) {

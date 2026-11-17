@@ -97,12 +97,21 @@
     background-color: var(--SmartThemeBlurTintColor);
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    /* Keep accidental selections from starting native drags (a dropped portrait
+       would hit ST's body-wide character-import handler). */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .lcd-card:hover {
     transform: translateY(-3px);
     border-color: var(--SmartThemeQuoteColor);
     box-shadow: 0 8px 24px var(--SmartThemeShadowColor);
+}
+
+/* Portraits must never start the browser's native image drag. */
+.lcd-portrait img {
+    -webkit-user-drag: none;
 }
 
 .lcd-card.lcd-active {
